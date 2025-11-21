@@ -120,19 +120,71 @@ export default function UsersPage() {
 
     return (
         <div className="space-y-8">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
                 {nonAdminCount > 0 && (
                     <Button
                         variant="destructive"
                         onClick={handleDeleteAllNonAdmins}
+                        className="w-full md:w-auto"
                     >
                         Delete All Non-Admin Users ({nonAdminCount})
                     </Button>
                 )}
             </div>
 
-            <div className="border rounded-lg">
+            {/* Mobile cards */}
+            <div className="space-y-4 md:hidden">
+                {users.map((user) => (
+                    <div key={user._id} className="rounded-lg border bg-background p-4 shadow-sm">
+                        <div className="flex flex-col gap-2">
+                            <div>
+                                <p className="text-lg font-semibold">{user.name}</p>
+                                <p className="text-sm text-muted-foreground break-all">{user.email}</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2 text-sm">
+                                <Badge variant="outline" className="capitalize">{user.role}</Badge>
+                                <Badge variant={
+                                    user.status === 'active' ? 'default' :
+                                        user.status === 'pending' ? 'secondary' : 'destructive'
+                                }>
+                                    {user.status}
+                                </Badge>
+                                <span className="text-muted-foreground">
+                                    Joined {format(new Date(user.createdAt), "PP")}
+                                </span>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                {user.status === 'pending' && (
+                                    <>
+                                        <Button size="sm" onClick={() => handleStatusUpdate(user._id, 'active')}>
+                                            Approve
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            onClick={() => handleStatusUpdate(user._id, 'rejected')}
+                                        >
+                                            Reject
+                                        </Button>
+                                    </>
+                                )}
+                                {user.role !== 'admin' && (
+                                    <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => handleDeleteUser(user._id, user.name)}
+                                    >
+                                        Delete
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="hidden rounded-lg border md:block">
                 <Table>
                     <TableHeader>
                         <TableRow>

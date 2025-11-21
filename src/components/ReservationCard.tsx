@@ -50,14 +50,15 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
     };
 
     return (
-        <Card>
+        <Card className="flex flex-col">
             <CardHeader>
-                <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <CardTitle className="text-lg text-balance">
                         {reservation.roomId?.name || "Unknown Room"}
                     </CardTitle>
                     <Badge
                         variant={reservation.status === "confirmed" ? "default" : "destructive"}
+                        className="w-fit"
                     >
                         {reservation.status}
                     </Badge>

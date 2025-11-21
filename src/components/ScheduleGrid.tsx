@@ -81,20 +81,21 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
     return (
         <div className="space-y-6">
             {/* Date Controls */}
-            <div className="flex items-center justify-between bg-muted/30 p-4 rounded-lg">
-                <Button variant="outline" size="icon" onClick={handlePrevDay}>
-                    <ChevronLeft className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-3 overflow-x-auto rounded-lg bg-muted/30 p-4 md:justify-between">
+                    <Button variant="outline" size="icon" onClick={handlePrevDay} className="flex-shrink-0">
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
 
-                {isMounted ? (
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className={cn("w-[240px] justify-start text-left font-normal")}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {format(selectedDate, "PPP")}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="center">
+                    {isMounted ? (
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className={cn("flex-1 min-w-[180px] justify-center text-left font-medium md:w-[240px]")}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    <span className="sm:hidden">{format(selectedDate, "MMM d")}</span>
+                                    <span className="hidden sm:inline">{format(selectedDate, "PPP")}</span>
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="center">
                             <Calendar
                                 mode="single"
                                 selected={selectedDate}
@@ -103,17 +104,18 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                             />
                         </PopoverContent>
                     </Popover>
-                ) : (
-                    <Button variant="outline" className={cn("w-[240px] justify-start text-left font-normal")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(selectedDate, "PPP")}
-                    </Button>
-                )}
+                    ) : (
+                        <Button variant="outline" className={cn("flex-1 min-w-[180px] justify-center text-left font-medium md:w-[240px]")}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            <span className="sm:hidden">{format(selectedDate, "MMM d")}</span>
+                            <span className="hidden sm:inline">{format(selectedDate, "PPP")}</span>
+                        </Button>
+                    )}
 
-                <Button variant="outline" size="icon" onClick={handleNextDay}>
-                    <ChevronRight className="h-4 w-4" />
-                </Button>
-            </div>
+                    <Button variant="outline" size="icon" onClick={handleNextDay} className="flex-shrink-0">
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
 
             {/* Room Tabs */}
             <div className="border rounded-lg p-2 bg-muted/30">
@@ -213,47 +215,48 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                                     {reservation ? (
                                         <div
                                             className={cn(
-                                                "rounded-xl p-3 shadow-sm border transition-all active:scale-[0.98]",
+                                                "rounded-xl border px-4 py-3 shadow-sm transition-all active:scale-[0.98] flex flex-col gap-2",
                                                 isPastReservation
-                                                    ? "bg-gray-100 dark:bg-gray-900/30 border-gray-300 dark:border-gray-700 opacity-60"
+                                                    ? "bg-gray-100 dark:bg-gray-900/40 border-gray-300 dark:border-gray-700 opacity-70"
                                                     : isMyReservation
-                                                        ? "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800"
-                                                        : "bg-card border-border",
+                                                        ? "bg-blue-50 border-blue-600 dark:bg-blue-950/40 dark:border-blue-800"
+                                                        : "bg-card border-primary/40"
                                             )}
                                             onClick={() => {
                                                 setSelectedReservation(reservation);
                                                 setIsDialogOpen(true);
                                             }}
                                         >
-                                            <div className="flex justify-between items-start mb-1">
-                                                <span className={cn(
-                                                    "font-semibold text-sm",
-                                                    isPastReservation
-                                                        ? "text-gray-600 dark:text-gray-400"
-                                                        : isMyReservation
-                                                            ? "text-blue-700 dark:text-blue-300"
-                                                            : "text-foreground"
-                                                )}>
-                                                    {reservation.bandName}
+                                            <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-muted-foreground">
+                                                <span className="font-semibold text-foreground">
+                                                    Reserved
+                                                </span>
+                                                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                                    {duration}h
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-semibold text-sm text-balance">
+                                                    {reservation.bandName ?? "Band"}
                                                 </span>
                                                 {isMyReservation && (
-                                                    <span className="text-[10px] bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full font-medium">
+                                                    <span className="text-[10px] rounded-full bg-blue-600 text-white px-2 py-0.5">
                                                         You
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="text-xs text-muted-foreground flex items-center gap-2">
+                                            <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
+                                                <span>{format(new Date(reservation.startTime), "EEE, MMM d")}</span>
+                                                <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
                                                 <span>
-                                                    {format(new Date(reservation.startTime), "h:mm")} - {format(new Date(reservation.endTime), "h:mm a")}
+                                                    {format(new Date(reservation.startTime), "h:mm a")} – {format(new Date(reservation.endTime), "h:mm a")}
                                                 </span>
-                                                <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
-                                                <span>{duration}h</span>
                                             </div>
                                             {/* @ts-ignore */}
                                             {reservation.purpose && (
-                                                <div className="mt-2 text-xs text-muted-foreground/80 italic border-l-2 border-primary/20 pl-2">
+                                                <p className="text-xs text-muted-foreground/90 leading-tight italic border-l-2 border-primary/30 pl-2">
                                                     {reservation.purpose}
-                                                </div>
+                                                </p>
                                             )}
                                         </div>
                                     ) : (

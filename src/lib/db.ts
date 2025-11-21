@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { ensureAdminUser } from '@/lib/ensureAdminUser';
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/bandhub';
 
@@ -42,6 +43,7 @@ async function dbConnect() {
     throw e;
   }
 
+  await ensureAdminUser();
   return cached.conn;
 }
 

@@ -38,7 +38,7 @@ export function BookingForm({ roomId, roomName }: BookingFormProps) {
             <Card>
                 <CardContent className="pt-6 text-center space-y-4">
                     <p>You must be logged in to book a room.</p>
-                    <div className="flex justify-center gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
                         <Link href="/login"><Button>Login</Button></Link>
                         <Link href="/register"><Button variant="outline">Register</Button></Link>
                     </div>
@@ -147,7 +147,7 @@ export function BookingForm({ roomId, roomName }: BookingFormProps) {
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
                                 <Label htmlFor="startTime">Start Time</Label>
                                 <div className="relative">

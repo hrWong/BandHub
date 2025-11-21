@@ -51,11 +51,37 @@ A modern band rehearsal room booking system built with Next.js, MongoDB, and Typ
 
 ## 📋 Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+ (for local development)
 - MongoDB database (local or cloud)
 - npm or yarn
+- **OR** Docker and Docker Compose (for containerized deployment)
 
 ## 🚀 Getting Started
+
+### Option 1: Docker Deployment (Recommended) 🐳
+
+The fastest way to get BandHub running in production:
+
+```bash
+# Clone the repository
+git clone https://github.com/hrWong/BandHub.git
+cd BandHub
+
+# Configure environment
+cp env.template .env
+# Edit .env and set NEXTAUTH_SECRET (generate with: openssl rand -base64 32)
+
+# Start with Docker Compose
+docker-compose up -d
+```
+
+Visit `http://localhost:3000` - that's it! 🎉
+
+**See also:**
+- [DOCKER.md](DOCKER.md) - Detailed Docker deployment guide
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Production deployment without Docker (PM2, nginx, etc.)
+
+### Option 2: Local Development
 
 ### 1. Clone the repository
 
@@ -83,6 +109,7 @@ NEXTAUTH_SECRET=your_nextauth_secret_key
 NEXTAUTH_URL=http://localhost:3000
 
 # Admin Setup (optional)
+ADMIN_NAME=BandHub Admin
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=your_admin_password
 ```
@@ -97,7 +124,7 @@ Open [http://localhost:3000](http://localhost:3000) to see the application.
 
 ### 5. Create Admin User
 
-On first run, register a user with the email specified in `ADMIN_EMAIL`. The system will automatically assign admin role.
+Set `ADMIN_EMAIL`/`ADMIN_PASSWORD` (and optional `ADMIN_NAME`) before starting the app. The system automatically ensures that user exists with admin privileges whenever the server connects to MongoDB, so you can log in immediately with those credentials.
 
 ## 📱 Usage
 

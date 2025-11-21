@@ -26,15 +26,21 @@ export function RoomSchedule({ reservations }: RoomScheduleProps) {
                 ) : (
                     <div className="space-y-4">
                         {upcoming.map((res) => (
-                            <div key={String(res._id)} className="flex justify-between items-center border-b pb-2 last:border-0">
+                            <div
+                                key={String(res._id)}
+                                className="flex flex-col gap-2 border-b pb-2 last:border-0 sm:flex-row sm:items-center sm:justify-between"
+                            >
                                 <div>
                                     <p className="font-medium">{format(new Date(res.startTime), "PPP")}</p>
                                     <p className="text-sm text-muted-foreground">
                                         {format(new Date(res.startTime), "p")} - {format(new Date(res.endTime), "p")}
                                     </p>
                                 </div>
-                                <div className="text-sm font-medium bg-secondary px-2 py-1 rounded">
-                                    {res.bandName}
+                                <div className="flex items-center justify-between gap-2 sm:justify-end">
+                                    <span className="text-xs uppercase tracking-wide text-muted-foreground">Band</span>
+                                    <div className="text-sm font-medium bg-secondary px-2 py-1 rounded">
+                                        {res.bandName}
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -46,7 +52,10 @@ export function RoomSchedule({ reservations }: RoomScheduleProps) {
                         <h3 className="text-lg font-semibold mb-2 text-muted-foreground">Past Bookings</h3>
                         <div className="space-y-2">
                             {past.map((res) => (
-                                <div key={String(res._id)} className="flex justify-between items-center opacity-60">
+                                <div
+                                    key={String(res._id)}
+                                    className="flex flex-col gap-2 opacity-60 sm:flex-row sm:items-center sm:justify-between"
+                                >
                                     <div>
                                         <p className="font-medium text-sm">{format(new Date(res.startTime), "PPP")}</p>
                                         <p className="text-xs text-muted-foreground">
@@ -65,4 +74,3 @@ export function RoomSchedule({ reservations }: RoomScheduleProps) {
         </Card>
     );
 }
-

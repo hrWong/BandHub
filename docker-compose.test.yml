@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  # Next.js Application (without MongoDB container for testing)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bandhub-app
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      # Use host MongoDB (if running locally)
+      MONGODB_URI: ${MONGODB_URI:-mongodb://host.docker.internal:27017/bandhub}
+      
+      # NextAuth configuration
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-secret-key-change-this-in-production}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3001}
+      
+      # Admin configuration (optional)
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@bandhub.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      
+      # Node environment
+      NODE_ENV: production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+# Note: This simplified version uses host MongoDB instead of containerized MongoDB
+# To use full stack with MongoDB container, use docker-compose.yml

@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: bandhub-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: bandhub_admin_password
+      MONGO_INITDB_DATABASE: bandhub
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - bandhub-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bandhub-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # MongoDB connection
+      MONGODB_URI: mongodb://admin:bandhub_admin_password@mongodb:27017/bandhub?authSource=admin
+      
+      # NextAuth configuration
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-secret-key-change-this-in-production}
+      AUTH_SECRET: ${AUTH_SECRET:-your-secret-key-change-this-in-production}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
+      
+      # Admin configuration (optional)
+      ADMIN_NAME: ${ADMIN_NAME:-BandHub Admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@bandhub.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      
+      # Node environment
+      NODE_ENV: production
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - bandhub-network
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+
+networks:
+  bandhub-network:
+    driver: bridge

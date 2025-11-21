@@ -38,14 +38,17 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
     return (
         <div className="space-y-8">
             <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                    <h1 className="text-3xl font-bold tracking-tight">{room.name}</h1>
-                    <Badge variant={room.isAvailable ? "default" : "secondary"} className="text-lg px-4 py-1">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h1 className="text-3xl font-bold tracking-tight text-balance">{room.name}</h1>
+                    <Badge
+                        variant={room.isAvailable ? "default" : "secondary"}
+                        className="w-full justify-center text-lg px-4 py-1 sm:w-auto"
+                    >
                         {room.isAvailable ? "Available" : "Maintenance"}
                     </Badge>
                 </div>
 
-                <div className="flex gap-6 text-muted-foreground">
+                <div className="flex flex-col gap-3 text-muted-foreground sm:flex-row sm:flex-wrap">
                     <div className="flex items-center">
                         <Users className="mr-2 h-5 w-5" />
                         <span>Capacity: {room.capacity}</span>
