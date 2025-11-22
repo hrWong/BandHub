@@ -78,6 +78,24 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
         });
     };
 
+    const buildSharedMeta = (slotReservations: any[], roomId: string) => {
+        const room = rooms.find(r => String(r._id) === String(roomId));
+        const participants = slotReservations.map(r => ({
+            id: r._id?.toString?.() || "",
+            name: r.bandName || "Shared Participant",
+            count: r.participantCount || 1,
+        }));
+        const totalParticipants = participants.reduce((sum, p) => sum + p.count, 0);
+        const capacity = room?.capacity || 0;
+
+        return {
+            participants,
+            totalParticipants,
+            capacity,
+            remaining: Math.max(0, capacity - totalParticipants),
+        };
+    };
+
     // Helper to check if a slot is available for booking
     const isSlotAvailable = (roomId: string, hour: number) => {
         const slotReservations = getReservationsForSlot(roomId, hour);
@@ -98,37 +116,61 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
         return totalParticipants < room.capacity;
     };
 
+    const formatSharedParticipants = (reservation: any) => {
+        if (reservation?.type !== 'shared') return null;
+        const participants = reservation.sharedMeta?.participants;
+        if (!participants || participants.length === 0) return null;
+        const names = participants.map((p: any) => p.name).filter(Boolean);
+        const maxNames = 3;
+        const displayed = names.slice(0, maxNames);
+        const remaining = names.length - displayed.length;
+        const label = remaining > 0 ? `${displayed.join(", ")} +${remaining}` : displayed.join(", ");
+        return {
+            label,
+            total: reservation.sharedMeta?.totalParticipants || names.length,
+            remaining: reservation.sharedMeta?.remaining ?? 0,
+        };
+    };
+
     // Helper to get the display reservation
     const getReservation = (roomId: string, hour: number) => {
         const slotReservations = getReservationsForSlot(roomId, hour);
         if (slotReservations.length === 0) return null;
 
+        const now = new Date();
+        const sharedMeta = slotReservations[0]?.type === 'shared'
+            ? buildSharedMeta(slotReservations, roomId)
+            : undefined;
+
         // 1. If I have a reservation, show mine
         // @ts-ignore
         // @ts-ignore
         const myReservation = currentUserId ? slotReservations.find(r => r.userId === currentUserId || (typeof r.userId === 'object' && String(r.userId._id) === String(currentUserId))) : null;
-        if (myReservation) return myReservation;
+        if (myReservation) {
+            return {
+                ...myReservation,
+                sharedMeta,
+            };
+        }
 
         const first = slotReservations[0];
+        const reservationEnded = first?.endTime ? new Date(first.endTime).getTime() <= now.getTime() : false;
 
         // 2. If it's shared and I don't have one, show placeholder
         // @ts-ignore
         if (first.type === 'shared') {
-            const room = rooms.find(r => String(r._id) === String(roomId));
-            // @ts-ignore
-            const totalParticipants = slotReservations.reduce((sum, r) => sum + (r.participantCount || 1), 0);
-            const capacity = room?.capacity || 0;
-            const remaining = Math.max(0, capacity - totalParticipants);
-
             // Return a placeholder object
             return {
                 ...first,
                 _id: `shared-${hour}`, // Virtual ID
                 bandName: "Shared Session",
-                purpose: `${remaining} spots available`,
+                purpose: reservationEnded ? "Session ended" : `${sharedMeta?.remaining ?? 0} spots available`,
                 isPlaceholder: true,
-                participantCount: totalParticipants, // Show total for context? Or maybe hide in JSX
-                remainingSpots: remaining
+                participantCount: sharedMeta?.totalParticipants || 0, // Show total for context
+                remainingSpots: sharedMeta?.remaining || 0,
+                sharedMeta,
+                isPast: reservationEnded,
+                originalReservation: first
             };
         }
 
@@ -223,6 +265,7 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                         const isPastReservation = reservation && new Date(reservation.endTime) < new Date();
                         const reservationId = reservation?._id?.toString();
                         const isHovered = hoveredReservationId === reservationId;
+                        const placeholderEnded = !!(reservation && (reservation as any).isPlaceholder && (reservation as any).isPast);
 
                         // Calculate duration for mobile view
                         const reservationStart = reservation ? new Date(reservation.startTime).getHours() : 0;
@@ -274,28 +317,72 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
 
                                 {/* Content Card */}
                                 <div className="ml-2">
-                                    {reservation ? (
-                                        // @ts-ignore
-                                        reservation.isPlaceholder ? (
-                                            // Placeholder View (Looks like empty slot but with indicator)
+                                {reservation ? (
+                                    // @ts-ignore
+                                    reservation.isPlaceholder ? (
+                                        // Placeholder View (Looks like empty slot but with indicator)
                                             <div
-                                                className="rounded-xl border-2 border-dashed border-green-300/50 bg-green-50/30 px-4 py-3 flex items-center justify-between transition-all active:scale-[0.98]"
+                                                className={cn(
+                                                    "rounded-xl border-2 border-dashed px-4 py-3 flex items-center justify-between transition-all",
+                                                    // @ts-ignore
+                                                    placeholderEnded
+                                                        ? "border-muted-foreground/20 bg-muted/20 cursor-pointer hover:border-muted-foreground/30"
+                                                        : "border-green-300/50 bg-green-50/30 active:scale-[0.98]"
+                                                )}
                                                 onClick={() => {
+                                                    // @ts-ignore
+                                                    if (placeholderEnded) {
+                                                        // @ts-ignore
+                                                        const baseReservation = reservation.originalReservation || reservation;
+                                                        setSelectedReservation({
+                                                            ...baseReservation,
+                                                            // @ts-ignore
+                                                            sharedMeta: reservation.sharedMeta
+                                                        });
+                                                        setIsDialogOpen(true);
+                                                        return;
+                                                    }
                                                     router.push(`/rooms/${String(selectedRoom?._id)}?date=${format(selectedDate, "yyyy-MM-dd")}&time=${hour}:00`);
                                                 }}
                                             >
                                                 <div className="flex items-center gap-3">
                                                     <span className="text-sm font-medium text-muted-foreground/80">
                                                         {/* @ts-ignore */}
-                                                        {reservation.remainingSpots} spots available
+                                                        {reservation.isPast ? "Session ended" : `${reservation.remainingSpots} spots available`}
                                                     </span>
-                                                    <span className="flex items-center gap-1 text-[10px] font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
-                                                        <Users className="w-3 h-3" />
-                                                        Active
-                                                    </span>
+                                                    {reservation.isPast ? (
+                                                        <span className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground/70 bg-muted px-2 py-0.5 rounded-full">
+                                                            <Users className="w-3 h-3" />
+                                                            Ended
+                                                        </span>
+                                                    ) : (
+                                                        <span className="flex items-center gap-1 text-[10px] font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
+                                                            <Users className="w-3 h-3" />
+                                                            Active
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <Button variant="ghost" size="sm" className="h-8 text-green-700 hover:text-green-800 hover:bg-green-100">
-                                                    Join
+                                                {/* Participants preview for shared session */}
+                                                {reservation.sharedMeta?.participants?.length > 0 && (
+                                                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-2">
+                                                        <Users className="w-3 h-3" />
+                                                        <span className="truncate">
+                                                            {formatSharedParticipants(reservation)?.label}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                <Button
+                                                    variant={reservation.isPast ? "ghost" : "ghost"}
+                                                    size="sm"
+                                                    className={cn(
+                                                        "h-8",
+                                                        reservation.isPast
+                                                            ? "text-muted-foreground cursor-not-allowed"
+                                                            : "text-green-700 hover:text-green-800 hover:bg-green-100"
+                                                    )}
+                                                    disabled={reservation.isPast}
+                                                >
+                                                    {reservation.isPast ? "Unavailable" : "Join"}
                                                 </Button>
                                             </div>
                                         ) : (
@@ -360,7 +447,9 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                                                 </div>
                                                 <div className="flex items-center justify-between">
                                                     <span className="font-semibold text-sm text-balance">
-                                                        {reservation.bandName ?? "Band"}
+                                                        {reservation.type === 'shared'
+                                                            ? "Shared Session"
+                                                            : (reservation.bandName ?? "Band")}
                                                     </span>
                                                     {isMyReservation && (
                                                         <span className="text-[10px] rounded-full bg-blue-600 text-white px-2 py-0.5">
@@ -380,6 +469,16 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                                                     <p className="text-xs text-muted-foreground/90 leading-tight italic border-l-2 border-primary/30 pl-2">
                                                         {reservation.purpose}
                                                     </p>
+                                                )}
+
+                                                {/* Shared participants list */}
+                                                {reservation.type === 'shared' && formatSharedParticipants(reservation) && (
+                                                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                                        <Users className="w-3 h-3" />
+                                                        <span className="truncate">
+                                                            {formatSharedParticipants(reservation)?.label}
+                                                        </span>
+                                                    </div>
                                                 )}
 
                                                 {/* Join button for shared reservations with available capacity (Only for participants who want to book MORE? No, this logic was for non-participants mostly. 
@@ -446,6 +545,7 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                         const isPastReservation = reservation && new Date(reservation.endTime) < new Date();
                         const reservationId = reservation?._id?.toString();
                         const isHovered = hoveredReservationId === reservationId;
+                        const placeholderEnded = !!(reservation && (reservation as any).isPlaceholder && (reservation as any).isPast);
 
                         // Calculate duration
                         const reservationStart = reservation ? new Date(reservation.startTime).getHours() : 0;
@@ -486,45 +586,84 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                                 </div>
 
                                 {/* Content Slot */}
-                                {reservation ? (
-                                    // If it's the start of a reservation, render the card spanning multiple rows
-                                    // If it's the start of a reservation, render the card spanning multiple rows
-                                    isStartOfReservation ? (
-                                        <div
-                                            key={`res-${hour}`}
-                                            className="py-1 pl-2 relative z-10"
-                                            style={{
-                                                gridRow: `${currentRow} / span ${duration}`,
-                                                gridColumn: 2
-                                            }}
-                                        >
-                                            {/* @ts-ignore */}
-                                            {reservation.isPlaceholder ? (
-                                                // Placeholder View (Looks like empty slot but with indicator)
-                                                <div
-                                                    className="h-full border-2 border-dashed border-green-300/50 bg-green-50/30 rounded-xl flex items-center justify-between px-8 transition-all cursor-pointer hover:border-green-400/60 hover:bg-green-50/50 group/shared"
-                                                    onClick={() => {
-                                                        router.push(`/rooms/${String(selectedRoom?._id)}?date=${format(selectedDate, "yyyy-MM-dd")}&time=${hour}:00`);
-                                                    }}
-                                                >
-                                                    <div className="flex items-center gap-4">
-                                                        <span className="font-medium text-muted-foreground/80 group-hover/shared:text-foreground transition-colors">
-                                                            {/* @ts-ignore */}
-                                                            {reservation.remainingSpots} spots available
-                                                        </span>
-                                                        <span className="flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-100/80 px-2.5 py-1 rounded-full border border-green-200">
-                                                            <Users className="w-3.5 h-3.5" />
-                                                            Active Session
-                                                        </span>
-                                                    </div>
-                                                    <Button className="opacity-0 group-hover/shared:opacity-100 transition-opacity bg-green-600 hover:bg-green-700 text-white">
-                                                        Join Session
-                                                    </Button>
-                                                </div>
-                                            ) : (
-                                                // Regular Reservation Card
-                                                <div
-                                                    className={cn(
+                                            {reservation ? (
+                                                // If it's the start of a reservation, render the card spanning multiple rows
+                                                // If it's the start of a reservation, render the card spanning multiple rows
+                                                isStartOfReservation ? (
+                                                    <div
+                                                        key={`res-${hour}`}
+                                                        className="py-1 pl-2 relative z-10"
+                                                        style={{
+                                                            gridRow: `${currentRow} / span ${duration}`,
+                                                            gridColumn: 2
+                                                        }}
+                                                    >
+                                                        {/* @ts-ignore */}
+                                                        {reservation.isPlaceholder ? (
+                                                            // Placeholder View (Looks like empty slot but with indicator)
+                                                            <div
+                                                                className={cn(
+                                                                    "h-full border-2 border-dashed rounded-xl flex items-center justify-between px-8 transition-all group/shared",
+                                                                    placeholderEnded
+                                                                        ? "border-muted-foreground/20 bg-muted/20 cursor-pointer hover:border-muted-foreground/30"
+                                                                        : "border-green-300/50 bg-green-50/30 cursor-pointer hover:border-green-400/60 hover:bg-green-50/50"
+                                                                )}
+                                                                onClick={() => {
+                                                                    if (placeholderEnded) {
+                                                                        // @ts-ignore
+                                                                        const baseReservation = reservation.originalReservation || reservation;
+                                                                        setSelectedReservation({
+                                                                            ...baseReservation,
+                                                                            // @ts-ignore
+                                                                            sharedMeta: reservation.sharedMeta
+                                                                        });
+                                                                        setIsDialogOpen(true);
+                                                                        return;
+                                                                    }
+                                                                    router.push(`/rooms/${String(selectedRoom?._id)}?date=${format(selectedDate, "yyyy-MM-dd")}&time=${hour}:00`);
+                                                                }}
+                                                            >
+                                                                <div className="flex items-center gap-4">
+                                                                    <span className="font-medium text-muted-foreground/80 group-hover/shared:text-foreground transition-colors">
+                                                                        {/* @ts-ignore */}
+                                                                        {reservation.isPast ? "Session ended" : `${reservation.remainingSpots} spots available`}
+                                                                    </span>
+                                                                    {reservation.isPast ? (
+                                                                        <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground/70 bg-muted px-2.5 py-1 rounded-full border border-muted-foreground/20">
+                                                                            <Users className="w-3.5 h-3.5" />
+                                                                            Ended
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-100/80 px-2.5 py-1 rounded-full border border-green-200">
+                                                                            <Users className="w-3.5 h-3.5" />
+                                                                            Active Session
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                {reservation.sharedMeta?.participants?.length > 0 && (
+                                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                                        <Users className="w-3 h-3" />
+                                                                        <span className="truncate">
+                                                                            {formatSharedParticipants(reservation)?.label}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                <Button
+                                                                    className={cn(
+                                                                        "transition-opacity",
+                                                                        placeholderEnded
+                                                                            ? "opacity-80 text-muted-foreground cursor-not-allowed"
+                                                                            : "opacity-0 group-hover/shared:opacity-100 bg-green-600 hover:bg-green-700 text-white"
+                                                                    )}
+                                                                    disabled={placeholderEnded}
+                                                                >
+                                                                    {reservation.isPast ? "Unavailable" : "Join Session"}
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            // Regular Reservation Card
+                                                            <div
+                                                                className={cn(
                                                         "w-full h-full rounded-xl p-5 cursor-pointer transition-all shadow-sm hover:shadow-md border-l-[6px]",
                                                         isPastReservation
                                                             ? "bg-gray-100 border-gray-400 dark:bg-gray-900/30 opacity-60"
@@ -539,11 +678,11 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                                                         setSelectedReservation(reservation);
                                                         setIsDialogOpen(true);
                                                     }}
-                                                >
-                                                    <div className="flex justify-between items-start h-full">
-                                                        <div className="flex flex-col justify-center h-full flex-1">
-                                                            <div className="flex items-center gap-3 mb-2">
-                                                                <h4 className={cn(
+                                                                >
+                                                                    <div className="flex justify-between items-start h-full">
+                                                                        <div className="flex flex-col justify-center h-full flex-1">
+                                                                            <div className="flex items-center gap-3 mb-2">
+                                                                                <h4 className={cn(
                                                                     "text-xl font-bold",
                                                                     isPastReservation
                                                                         ? "text-gray-600 dark:text-gray-400"
@@ -551,9 +690,11 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                                                                             ? "text-blue-700 dark:text-blue-400"
                                                                             : "text-foreground"
                                                                 )}>
-                                                                    {reservation.bandName}
-                                                                    {isMyReservation && <span className="ml-3 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full dark:bg-blue-900 dark:text-blue-300 align-middle">You</span>}
-                                                                </h4>
+                                                                                    {reservation.type === 'shared'
+                                                                                        ? "Shared Session"
+                                                                                        : reservation.bandName}
+                                                                                    {isMyReservation && <span className="ml-3 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full dark:bg-blue-900 dark:text-blue-300 align-middle">You</span>}
+                                                                                </h4>
                                                                 {/* @ts-ignore */}
                                                                 {reservation.type && (
                                                                     <span className={cn(
@@ -599,6 +740,14 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                                                                 {reservation.purpose && (
                                                                     <span className="flex items-center italic opacity-90 border-l-2 border-primary/30 pl-3 text-foreground/80 font-medium">
                                                                         "{reservation.purpose}"
+                                                                    </span>
+                                                                )}
+                                                                {reservation.type === 'shared' && formatSharedParticipants(reservation) && (
+                                                                    <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                                        <Users className="w-3 h-3" />
+                                                                        <span className="truncate max-w-[240px]">
+                                                                            {formatSharedParticipants(reservation)?.label}
+                                                                        </span>
                                                                     </span>
                                                                 )}
                                                             </div>

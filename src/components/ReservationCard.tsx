@@ -28,6 +28,7 @@ interface ReservationCardProps {
 export function ReservationCard({ reservation, canCancel = true }: ReservationCardProps) {
     const router = useRouter();
     const [isCancelling, setIsCancelling] = useState(false);
+    const displayName = reservation.type === 'shared' ? "Shared Session" : reservation.bandName;
 
     const handleCancel = async () => {
         if (!confirm("Are you sure you want to cancel this reservation?")) return;
@@ -73,9 +74,9 @@ export function ReservationCard({ reservation, canCancel = true }: ReservationCa
                             {reservation.roomId?.name || "Unknown Room"}
                         </CardTitle>
                         <p className="text-sm text-muted-foreground">
-                            {reservation.bandName}
+                            {displayName}
                             {/* @ts-ignore */}
-                            {reservation.userId?.name && <span className="text-xs ml-1">({reservation.userId.name})</span>}
+                            {reservation.type !== 'shared' && reservation.userId?.name && <span className="text-xs ml-1">({reservation.userId.name})</span>}
                         </p>
                     </div>
                     <div className="flex gap-2">

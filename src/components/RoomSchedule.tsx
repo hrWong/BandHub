@@ -33,6 +33,7 @@ export function RoomSchedule({ reservations, roomCapacity }: RoomScheduleProps) 
                         {upcoming.map((res) => {
                             const isShared = res.type === 'shared';
                             const isExclusive = res.type === 'exclusive' || !res.type;
+                            const displayName = isShared ? "Shared Session" : res.bandName;
 
                             return (
                                 <div
@@ -61,7 +62,7 @@ export function RoomSchedule({ reservations, roomCapacity }: RoomScheduleProps) 
                                     <div className="flex items-center justify-between gap-2">
                                         <span className="text-xs uppercase tracking-wide text-muted-foreground">Band</span>
                                         <div className="text-sm font-medium bg-secondary px-2 py-1 rounded">
-                                            {res.bandName}
+                                            {displayName}
                                         </div>
                                     </div>
                                     {isShared && (
@@ -110,7 +111,7 @@ export function RoomSchedule({ reservations, roomCapacity }: RoomScheduleProps) 
                                             </Badge>
                                         )}
                                         <div className="text-xs font-medium bg-muted px-2 py-1 rounded">
-                                            {res.bandName}
+                                            {res.type === 'shared' ? "Shared Session" : res.bandName}
                                         </div>
                                     </div>
                                 </div>

@@ -52,6 +52,11 @@ export function ReservationDetailDialog({
     if (!reservation) return null;
 
     const isPastReservation = new Date(reservation.endTime) < new Date();
+    const displayName = reservation.type === 'shared' ? "Shared Session" : reservation.bandName;
+    const sharedParticipants = reservation.sharedMeta?.participants || [];
+    const sharedCapacity = reservation.sharedMeta?.capacity;
+    const sharedTotal = reservation.sharedMeta?.totalParticipants || reservation.participantCount;
+    const sharedRemaining = reservation.sharedMeta?.remaining;
 
     const handleSave = async () => {
         setIsSubmitting(true);
@@ -265,9 +270,9 @@ export function ReservationDetailDialog({
                                     {reservation.bandId ? "Band Name" : "Reservation Name"}
                                 </Label>
                                 <p className="font-medium">
-                                    {reservation.bandName}
+                                    {displayName}
                                     {/* @ts-ignore */}
-                                    {reservation.userId?.name && <span className="text-sm font-normal text-muted-foreground ml-2">(Booked by: {reservation.userId.name})</span>}
+                                    {reservation.type !== 'shared' && reservation.userId?.name && <span className="text-sm font-normal text-muted-foreground ml-2">(Booked by: {reservation.userId.name})</span>}
                                 </p>
                             </div>
                             {reservation.purpose && (
@@ -284,11 +289,39 @@ export function ReservationDetailDialog({
                                     {reservation.type || 'exclusive'}
                                     {reservation.type === 'shared' && reservation.participantCount && (
                                         <span className="text-sm font-normal text-muted-foreground ml-2">
-                                            ({reservation.participantCount} participants)
+                                            ({sharedTotal || reservation.participantCount} participants)
                                         </span>
                                     )}
                                 </p>
                             </div>
+
+                            {reservation.type === 'shared' && (
+                                <div>
+                                    <Label className="text-muted-foreground">Participants</Label>
+                                    {sharedParticipants.length > 0 ? (
+                                        <div className="space-y-2">
+                                            <p className="text-sm text-muted-foreground">
+                                                {sharedTotal || sharedParticipants.length} people booked{typeof sharedCapacity === 'number' ? ` / capacity ${sharedCapacity}` : ""}{typeof sharedRemaining === 'number' ? ` (remaining ${sharedRemaining})` : ""}.
+                                            </p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {sharedParticipants.map((p: any) => (
+                                                    <span
+                                                        key={p.id || p.name}
+                                                        className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground"
+                                                    >
+                                                        {p.name}
+                                                        {p.count > 1 && <span className="font-medium">x{p.count}</span>}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">
+                                            {sharedTotal || reservation.participantCount || 1} people booked in this shared session.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </>
                     )}
 
