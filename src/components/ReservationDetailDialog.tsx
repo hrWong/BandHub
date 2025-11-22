@@ -30,6 +30,8 @@ export function ReservationDetailDialog({
     const [startDate, setStartDate] = useState("");
     const [startTime, setStartTime] = useState("");
     const [endTime, setEndTime] = useState("");
+    const [reservationType, setReservationType] = useState<'exclusive' | 'shared'>(reservation?.type || 'exclusive');
+    const [participantCount, setParticipantCount] = useState(reservation?.participantCount || 1);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Initialize form values when reservation changes
@@ -37,6 +39,8 @@ export function ReservationDetailDialog({
         if (reservation) {
             setBandName(reservation.bandName || "");
             setPurpose(reservation.purpose || "");
+            setReservationType(reservation.type || 'exclusive');
+            setParticipantCount(reservation.participantCount || 1);
             const start = new Date(reservation.startTime);
             const end = new Date(reservation.endTime);
             setStartDate(format(start, "yyyy-MM-dd"));
@@ -69,6 +73,8 @@ export function ReservationDetailDialog({
                     purpose,
                     startTime: newStartTime.toISOString(),
                     endTime: newEndTime.toISOString(),
+                    type: reservationType,
+                    participantCount: reservationType === 'shared' ? participantCount : 1,
                 }),
             });
 
@@ -133,7 +139,8 @@ export function ReservationDetailDialog({
                                     id="startDate"
                                     type="date"
                                     value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
+                                    disabled
+                                    className="bg-muted"
                                 />
                             </div>
                             <div className="grid grid-cols-2 gap-2">
@@ -143,17 +150,34 @@ export function ReservationDetailDialog({
                                         id="startTime"
                                         type="time"
                                         value={startTime}
-                                        onChange={(e) => setStartTime(e.target.value)}
+                                        disabled
+                                        className="bg-muted"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="endTime">End Time</Label>
-                                    <Input
-                                        id="endTime"
-                                        type="time"
-                                        value={endTime}
-                                        onChange={(e) => setEndTime(e.target.value)}
-                                    />
+                                    <Label htmlFor="duration">Duration</Label>
+                                    <select
+                                        id="duration"
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        value={(() => {
+                                            const start = new Date(`2000-01-01T${startTime}`);
+                                            const end = new Date(`2000-01-01T${endTime}`);
+                                            const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+                                            return Math.round(diffHours).toString();
+                                        })()}
+                                        onChange={(e) => {
+                                            const duration = parseInt(e.target.value);
+                                            const start = new Date(`2000-01-01T${startTime}`);
+                                            const end = new Date(start.getTime() + duration * 60 * 60 * 1000);
+                                            setEndTime(format(end, "HH:mm"));
+                                        }}
+                                    >
+                                        {[1, 2, 3, 4, 5].map((hours) => (
+                                            <option key={hours} value={hours}>
+                                                {hours} hour{hours > 1 ? 's' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
                         </>
@@ -172,7 +196,9 @@ export function ReservationDetailDialog({
                     {isEditing ? (
                         <>
                             <div className="space-y-2">
-                                <Label htmlFor="bandName">Band Name</Label>
+                                <Label htmlFor="bandName">
+                                    {reservation.bandId ? "Band Name" : "Reservation Name"}
+                                </Label>
                                 <Input
                                     id="bandName"
                                     value={bandName}
@@ -188,12 +214,61 @@ export function ReservationDetailDialog({
                                     placeholder="Optional"
                                 />
                             </div>
+
+                            {/* Reservation Type */}
+                            <div className="space-y-2">
+                                <Label>Reservation Type</Label>
+                                <div className="flex gap-4">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="reservationType"
+                                            value="exclusive"
+                                            checked={reservationType === 'exclusive'}
+                                            onChange={(e) => setReservationType('exclusive')}
+                                            className="w-4 h-4"
+                                        />
+                                        <span className="text-sm">Exclusive Booking</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="reservationType"
+                                            value="shared"
+                                            checked={reservationType === 'shared'}
+                                            onChange={(e) => setReservationType('shared')}
+                                            className="w-4 h-4"
+                                        />
+                                        <span className="text-sm">Shared Practice</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Participant Count (only for shared) */}
+                            {reservationType === 'shared' && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="participantCount">Number of Participants</Label>
+                                    <Input
+                                        id="participantCount"
+                                        type="number"
+                                        min="1"
+                                        value={participantCount}
+                                        onChange={(e) => setParticipantCount(parseInt(e.target.value) || 1)}
+                                    />
+                                </div>
+                            )}
                         </>
                     ) : (
                         <>
                             <div>
-                                <Label className="text-muted-foreground">Band Name</Label>
-                                <p className="font-medium">{reservation.bandName}</p>
+                                <Label className="text-muted-foreground">
+                                    {reservation.bandId ? "Band Name" : "Reservation Name"}
+                                </Label>
+                                <p className="font-medium">
+                                    {reservation.bandName}
+                                    {/* @ts-ignore */}
+                                    {reservation.userId?.name && <span className="text-sm font-normal text-muted-foreground ml-2">(Booked by: {reservation.userId.name})</span>}
+                                </p>
                             </div>
                             {reservation.purpose && (
                                 <div>
@@ -201,6 +276,19 @@ export function ReservationDetailDialog({
                                     <p className="italic">{reservation.purpose}</p>
                                 </div>
                             )}
+
+                            {/* Display Reservation Type */}
+                            <div>
+                                <Label className="text-muted-foreground">Reservation Type</Label>
+                                <p className="font-medium capitalize">
+                                    {reservation.type || 'exclusive'}
+                                    {reservation.type === 'shared' && reservation.participantCount && (
+                                        <span className="text-sm font-normal text-muted-foreground ml-2">
+                                            ({reservation.participantCount} participants)
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
                         </>
                     )}
 

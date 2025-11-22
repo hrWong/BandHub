@@ -20,7 +20,7 @@ async function getData(dateStr?: string) {
   const reservations = await Reservation.find({
     startTime: { $gte: startOfDay, $lte: endOfDay },
     status: 'confirmed'
-  }).populate('roomId').lean();
+  }).populate('roomId').populate('userId', 'name role').lean();
 
   return {
     rooms: JSON.parse(JSON.stringify(rooms)),

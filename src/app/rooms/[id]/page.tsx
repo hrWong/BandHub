@@ -63,10 +63,15 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
             <div className="grid gap-8 md:grid-cols-[2fr_1fr]">
                 <div className="space-y-6">
                     <h2 className="text-2xl font-semibold">Book a Session</h2>
-                    <BookingForm roomId={room._id} roomName={room.name} />
+                    <BookingForm
+                        roomId={room._id}
+                        roomName={room.name}
+                        roomCapacity={room.capacity}
+                        reservations={reservations}
+                    />
                 </div>
                 <div className="space-y-6">
-                    <RoomSchedule reservations={reservations} />
+                    <RoomSchedule reservations={reservations} roomCapacity={room.capacity} />
                 </div>
             </div>
         </div>

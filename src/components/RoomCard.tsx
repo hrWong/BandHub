@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Music, Calendar, Clock } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { IRoom } from "@/models/Room";
 import { format } from "date-fns";
 
@@ -17,9 +18,19 @@ interface RoomCardProps {
 export function RoomCard({ room, currentReservation }: RoomCardProps) {
     return (
         <Card className="overflow-hidden transition-all hover:shadow-lg flex flex-col">
-            <div className="h-48 w-full bg-muted/50 flex items-center justify-center relative">
-                {/* Placeholder for room image */}
-                <Music className="h-16 w-16 text-muted-foreground/50" />
+            <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                {room.imageUrl ? (
+                    <Image
+                        src={room.imageUrl}
+                        alt={room.name}
+                        fill
+                        className="object-cover"
+                    />
+                ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-muted to-primary/5">
+                        <Music className="h-16 w-16 text-muted-foreground/50" />
+                    </div>
+                )}
                 {currentReservation ? (
                     <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white p-4 text-center backdrop-blur-sm">
                         <Clock className="h-8 w-8 mb-2 text-red-400" />
@@ -29,7 +40,7 @@ export function RoomCard({ room, currentReservation }: RoomCardProps) {
                     </div>
                 ) : (
                     room.isAvailable && (
-                        <div className="absolute top-4 right-4">
+                        <div className="absolute top-3 right-3">
                             <Badge className="bg-green-500 hover:bg-green-600">Available Now</Badge>
                         </div>
                     )
@@ -55,13 +66,20 @@ export function RoomCard({ room, currentReservation }: RoomCardProps) {
                     </div>
                 </div>
             </CardContent>
-            <CardFooter>
-                <Link href={`/rooms/${room._id}`} className="w-full">
-                    <Button className="w-full">
-                        <Calendar className="mr-2 h-4 w-4" />
-                        Book Now
+            <CardFooter className="mt-auto">
+                {room.isAvailable ? (
+                    <Link href={`/rooms/${room._id}`} className="w-full">
+                        <Button className="w-full">
+                            <Calendar className="mr-2 h-4 w-4" />
+                            Book Now
+                        </Button>
+                    </Link>
+                ) : (
+                    <Button disabled className="w-full" variant="secondary">
+                        <Clock className="mr-2 h-4 w-4" />
+                        Under Maintenance
                     </Button>
-                </Link>
+                )}
             </CardFooter>
         </Card>
     );

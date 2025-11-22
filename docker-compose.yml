@@ -17,11 +17,30 @@ services:
       - mongodb_config:/data/configdb
     networks:
       - bandhub-network
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      test: echo 'try { rs.status() } catch (e) { rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "mongodb:27017" }] }) }' | mongosh --port 27017 --quiet
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # MongoDB Replica Set Initializer (Optional, but good for explicit init if healthcheck fails to do it cleanly on first run)
+  # actually the healthcheck hack above is a common way to auto-initiate. 
+  # But let's stick to a cleaner separate service if we want to be sure, or just the healthcheck.
+  # The healthcheck above tries to initiate if status fails. 
+  # However, with auth enabled, we need credentials.
+  # Let's use a separate service for clarity and robustness with auth.
+  
+  mongo-init:
+    image: mongo:7.0
+    restart: "no"
+    depends_on:
+      mongodb:
+        condition: service_started
+    command: >
+      bash -c "sleep 10 && mongosh --host mongodb:27017 -u admin -p bandhub_admin_password --authenticationDatabase admin --eval 'try { rs.status(); } catch (e) { rs.initiate({ _id: \"rs0\", members: [{ _id: 0, host: \"mongodb:27017\" }] }); }'"
+    networks:
+      - bandhub-network
 
   # Next.js Application
   app:

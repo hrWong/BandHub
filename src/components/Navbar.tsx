@@ -20,6 +20,11 @@ export async function Navbar() {
                             My Reservations
                         </Button>
                     </Link>
+                    <Link href="/bands">
+                        <Button variant="ghost" className="w-full justify-start md:w-auto">
+                            Bands
+                        </Button>
+                    </Link>
                     {session.user?.role === "admin" && (
                         <Link href="/admin">
                             <Button variant="ghost" className="w-full justify-start md:w-auto">
@@ -30,7 +35,7 @@ export async function Navbar() {
                     <form
                         action={async () => {
                             "use server";
-                            await signOut();
+                            await signOut({ redirectTo: "/login" });
                         }}
                         className="w-full"
                     >
