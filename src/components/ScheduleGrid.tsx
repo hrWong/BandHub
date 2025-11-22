@@ -66,7 +66,7 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
         const slotStart = new Date(selectedDate);
         slotStart.setHours(hour, 0, 0, 0);
 
-        return reservations.filter(r => {
+        const filtered = reservations.filter(r => {
             const rStart = new Date(r.startTime);
             const rEnd = new Date(r.endTime);
             // Handle both populated object and string ID
@@ -76,6 +76,9 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                 rStart.getTime() <= slotStart.getTime() &&
                 rEnd.getTime() > slotStart.getTime();
         });
+
+        // Sort by start time to ensure consistent ordering for shared placeholders and display
+        return filtered.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     };
 
     const buildSharedMeta = (slotReservations: any[], roomId: string) => {
@@ -178,6 +181,11 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
         return first;
     };
 
+    const getSharedDisplayCount = (reservation: any) => {
+        if (!reservation || reservation.type !== 'shared') return reservation?.participantCount;
+        return reservation.sharedMeta?.totalParticipants ?? reservation.participantCount ?? 1;
+    };
+
     return (
         <div className="space-y-6">
             {/* Date Controls */}
@@ -255,6 +263,10 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                     {hours.map((hour, index) => {
                         const reservation = selectedRoom ? getReservation(String(selectedRoom._id), hour) : null;
                         const isStartOfReservation = reservation && new Date(reservation.startTime).getHours() === hour;
+                        const isSharedReservation = reservation?.type === 'shared';
+                        const isSharedPlaceholder = !!(reservation as any)?.isPlaceholder && isSharedReservation;
+                        // For shared reservations, render a card each hour so overlapping bookings remain visible
+                        const shouldRenderReservation = reservation ? (isSharedReservation || isStartOfReservation) : false;
 
                         // @ts-ignore
                         const isMyReservation = reservation && currentUserId && (
@@ -264,30 +276,38 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                         );
                         const isPastReservation = reservation && new Date(reservation.endTime) < new Date();
                         const reservationId = reservation?._id?.toString();
-                        const isHovered = hoveredReservationId === reservationId;
+                        const renderReservationId = reservation
+                            ? (isSharedReservation ? `${reservationId || "shared"}-${hour}` : reservationId)
+                            : null;
+                        const isHovered = hoveredReservationId === renderReservationId;
                         const placeholderEnded = !!(reservation && (reservation as any).isPlaceholder && (reservation as any).isPast);
 
                         // Calculate duration for mobile view
                         const reservationStart = reservation ? new Date(reservation.startTime).getHours() : 0;
                         const reservationEnd = reservation ? new Date(reservation.endTime).getHours() : 0;
                         const duration = reservation ? reservationEnd - reservationStart : 0;
+                        const slotStartTime = new Date(selectedDate);
+                        slotStartTime.setHours(hour, 0, 0, 0);
+                        const slotEndTime = new Date(slotStartTime);
+                        slotEndTime.setHours(slotStartTime.getHours() + 1);
+                        const displayStart = reservation ? (isSharedReservation ? slotStartTime : new Date(reservation.startTime)) : null;
+                        const displayEnd = reservation ? (isSharedReservation ? slotEndTime : new Date(reservation.endTime)) : null;
+                        const displayDuration = reservation ? (isSharedReservation ? 1 : duration) : 0;
 
                         // Only show start of multi-hour reservation
-                        if (reservation && !isStartOfReservation) {
+                        if (reservation && !shouldRenderReservation) {
                             return null;
                         }
 
                         // Check status for empty slots
-                        const slotTime = new Date(selectedDate);
-                        slotTime.setHours(hour, 0, 0, 0);
-                        const isPast = slotTime < new Date();
+                        const isPast = slotStartTime < new Date();
 
                         // @ts-ignore
                         const isAdmin = session?.user?.role === 'admin';
                         const sevenDaysFromNow = new Date();
                         sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
                         sevenDaysFromNow.setHours(23, 59, 59, 999);
-                        const isTooFarAhead = !isAdmin && slotTime > sevenDaysFromNow;
+                        const isTooFarAhead = !isAdmin && slotStartTime > sevenDaysFromNow;
 
                         return (
                             <div
@@ -416,7 +436,7 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                                                             )}>
                                                                 {reservation.type}
                                                                 {/* @ts-ignore */}
-                                                                {reservation.type === 'shared' && reservation.participantCount && ` (${reservation.participantCount})`}
+                                                                {reservation.type === 'shared' && getSharedDisplayCount(reservation) && ` (${getSharedDisplayCount(reservation)})`}
                                                             </span>
                                                         )}
 
@@ -445,11 +465,11 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                                                         {duration}h
                                                     </span>
                                                 </div>
-                                                <div className="flex items-center justify-between">
-                                                    <span className="font-semibold text-sm text-balance">
-                                                        {reservation.type === 'shared'
-                                                            ? "Shared Session"
-                                                            : (reservation.bandName ?? "Band")}
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-semibold text-sm text-balance">
+                                                    {reservation.type === 'shared'
+                                                        ? "Shared Session"
+                                                        : (reservation.bandName ?? "Band")}
                                                     </span>
                                                     {isMyReservation && (
                                                         <span className="text-[10px] rounded-full bg-blue-600 text-white px-2 py-0.5">
@@ -458,10 +478,15 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                                                     )}
                                                 </div>
                                                 <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
-                                                    <span>{format(new Date(reservation.startTime), "EEE, MMM d")}</span>
+                                                    <span>{displayStart ? format(displayStart, "EEE, MMM d") : null}</span>
                                                     <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
                                                     <span>
-                                                        {format(new Date(reservation.startTime), "h:mm a")} – {format(new Date(reservation.endTime), "h:mm a")}
+                                                        {displayStart && displayEnd && (
+                                                            <>
+                                                                {format(displayStart, "h:mm a")} – {format(displayEnd, "h:mm a")}
+                                                                <span className="ml-1 font-semibold">({displayDuration}h)</span>
+                                                            </>
+                                                        )}
                                                     </span>
                                                 </div>
                                                 {/* @ts-ignore */}
@@ -531,10 +556,14 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                 </div>
 
                 {/* PC: Professional Timeline View (CSS Grid) */}
-                <div className="hidden md:grid grid-cols-[100px_1fr] gap-x-6 gap-y-0 p-6 bg-background/50">
+                <div className="hidden md:grid grid-cols-[100px_1fr] gap-x-6 gap-y-0 p-6 bg-background/50 auto-rows-[96px]">
                     {hours.map((hour, index) => {
                         const reservation = selectedRoom ? getReservation(String(selectedRoom._id), hour) : null;
                         const isStartOfReservation = reservation && new Date(reservation.startTime).getHours() === hour;
+                        const isSharedReservation = reservation?.type === 'shared';
+                        const isSharedPlaceholder = !!(reservation as any)?.isPlaceholder && isSharedReservation;
+                        // For shared reservations, render a card each hour so overlapping bookings remain visible
+                        const shouldRenderReservation = reservation ? (isSharedReservation || isStartOfReservation) : false;
 
                         // @ts-ignore
                         const isMyReservation = reservation && currentUserId && (
@@ -551,11 +580,21 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                         const reservationStart = reservation ? new Date(reservation.startTime).getHours() : 0;
                         const reservationEnd = reservation ? new Date(reservation.endTime).getHours() : 0;
                         const duration = reservation ? reservationEnd - reservationStart : 0;
+                        const renderReservationId = reservation
+                            ? (isSharedReservation ? `${reservation._id?.toString?.() || "shared"}-${hour}` : reservation._id?.toString?.())
+                            : null;
+                        // Shared reservations render per-hour; exclusive bookings span their full duration
+                        const blockSpan = reservation ? (isSharedReservation ? 1 : duration) : 0;
+                        const slotStartTime = new Date(selectedDate);
+                        slotStartTime.setHours(hour, 0, 0, 0);
+                        const slotEndTime = new Date(slotStartTime);
+                        slotEndTime.setHours(slotStartTime.getHours() + 1);
+                        const displayStart = reservation ? (isSharedReservation ? slotStartTime : new Date(reservation.startTime)) : null;
+                        const displayEnd = reservation ? (isSharedReservation ? slotEndTime : new Date(reservation.endTime)) : null;
+                        const displayDuration = reservation ? (isSharedReservation ? 1 : duration) : 0;
 
                         // Check if slot is in the past
-                        const slotTime = new Date(selectedDate);
-                        slotTime.setHours(hour, 0, 0, 0);
-                        const isPast = slotTime < new Date();
+                        const isPast = slotStartTime < new Date();
 
                         // Check if slot is too far in the future (7 days) for non-admins
                         // @ts-ignore
@@ -563,7 +602,7 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                         const sevenDaysFromNow = new Date();
                         sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
                         sevenDaysFromNow.setHours(23, 59, 59, 999);
-                        const isTooFarAhead = !isAdmin && slotTime > sevenDaysFromNow;
+                        const isTooFarAhead = !isAdmin && slotStartTime > sevenDaysFromNow;
 
                         // Determine grid row placement
                         // Grid rows are 1-indexed. Each hour is one row.
@@ -586,17 +625,17 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                                 </div>
 
                                 {/* Content Slot */}
-                                            {reservation ? (
-                                                // If it's the start of a reservation, render the card spanning multiple rows
-                                                // If it's the start of a reservation, render the card spanning multiple rows
-                                                isStartOfReservation ? (
-                                                    <div
-                                                        key={`res-${hour}`}
-                                                        className="py-1 pl-2 relative z-10"
-                                                        style={{
-                                                            gridRow: `${currentRow} / span ${duration}`,
-                                                            gridColumn: 2
-                                                        }}
+                                {reservation ? (
+                                    // If it's the start of a reservation, render the card spanning multiple rows
+                                    // If it's the start of a reservation, render the card spanning multiple rows
+                                    shouldRenderReservation ? (
+                                        <div
+                                            key={`res-${hour}`}
+                                            className="py-1 pl-2 relative z-10"
+                                            style={{
+                                                gridRow: isSharedPlaceholder ? currentRow : `${currentRow} / span ${blockSpan || 1}`,
+                                                gridColumn: 2
+                                            }}
                                                     >
                                                         {/* @ts-ignore */}
                                                         {reservation.isPlaceholder ? (
@@ -672,7 +711,7 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                                                                 : "bg-card border-primary",
                                                         isHovered && "scale-[1.01] shadow-lg ring-1 ring-primary/20"
                                                     )}
-                                                    onMouseEnter={() => reservation && reservationId && setHoveredReservationId(reservationId)}
+                                                    onMouseEnter={() => renderReservationId && setHoveredReservationId(renderReservationId)}
                                                     onMouseLeave={() => setHoveredReservationId(null)}
                                                     onClick={() => {
                                                         setSelectedReservation(reservation);
@@ -705,7 +744,7 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                                                                     )}>
                                                                         {reservation.type}
                                                                         {/* @ts-ignore */}
-                                                                        {reservation.type === 'shared' && reservation.participantCount && ` (${reservation.participantCount} people)`}
+                                                                        {reservation.type === 'shared' && getSharedDisplayCount(reservation) && ` (${getSharedDisplayCount(reservation)} people)`}
                                                                     </span>
                                                                 )}
 
@@ -734,8 +773,12 @@ export function ScheduleGrid({ rooms, reservations, date, currentUserId, onUpdat
                                                             <div className="flex items-center text-sm text-muted-foreground space-x-6">
                                                                 <span className="flex items-center bg-background/50 px-2 py-1 rounded">
                                                                     <CalendarIcon className="w-4 h-4 mr-2" />
-                                                                    {format(new Date(reservation.startTime), "h:mm a")} - {format(new Date(reservation.endTime), "h:mm a")}
-                                                                    <span className="ml-2 font-medium text-foreground/70">({duration}h)</span>
+                                                                    {displayStart && displayEnd && (
+                                                                        <>
+                                                                            {format(displayStart, "h:mm a")} - {format(displayEnd, "h:mm a")}
+                                                                        </>
+                                                                    )}
+                                                                    <span className="ml-2 font-medium text-foreground/70">({displayDuration}h)</span>
                                                                 </span>
                                                                 {reservation.purpose && (
                                                                     <span className="flex items-center italic opacity-90 border-l-2 border-primary/30 pl-3 text-foreground/80 font-medium">
